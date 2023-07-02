@@ -11,7 +11,7 @@ import torchvision.transforms as transforms
 import os
 import argparse
 
-from models import *
+from models import VGG, mVGG16  # Import mVGG16 model
 from utils import progress_bar
 
 
@@ -54,7 +54,16 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 
 # Model
 print('==> Building model..')
-# net = VGG('VGG19')
+vgg16 = VGG('VGG16')
+if device == 'cuda':
+    net = torch.nn.DataParallel(vgg16)
+    cudnn.benchmark = True
+# Create mVGG16 model
+m_vgg16 = mVGG16()
+m_vgg16 = m_vgg16.to(device)
+if device == 'cuda':
+    m_vgg16 = torch.nn.DataParallel(m_vgg16)
+    cudnn.benchmark = True
 # net = ResNet18()
 # net = PreActResNet18()
 # net = GoogLeNet()
@@ -68,11 +77,7 @@ print('==> Building model..')
 # net = ShuffleNetV2(1)
 # net = EfficientNetB0()
 # net = RegNetX_200MF()
-net = SimpleDLA()
-net = net.to(device)
-if device == 'cuda':
-    net = torch.nn.DataParallel(net)
-    cudnn.benchmark = True
+# net = SimpleDLA()
 
 if args.resume:
     # Load checkpoint.
@@ -88,18 +93,17 @@ optimizer = optim.SGD(net.parameters(), lr=args.lr,
                       momentum=0.9, weight_decay=5e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
-
 # Training
-def train(epoch):
-    print('\nEpoch: %d' % epoch)
-    net.train()
+def train(epoch, model):
+    print('\nEpoch: %d - Model: %s' % (epoch, model_name))
+    model.train()
     train_loss = 0
     correct = 0
     total = 0
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
-        outputs = net(inputs)
+        outputs = model(inputs)  # Use the provided model for training
         loss = criterion(outputs, targets)
         loss.backward()
         optimizer.step()
@@ -113,16 +117,17 @@ def train(epoch):
                      % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
 
-def test(epoch):
+# Testing
+def test(epoch, model):
     global best_acc
-    net.eval()
+    model.eval()
     test_loss = 0
     correct = 0
     total = 0
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
-            outputs = net(inputs)
+            outputs = model(inputs)  # Use the provided model for testing
             loss = criterion(outputs, targets)
 
             test_loss += loss.item()
@@ -138,7 +143,7 @@ def test(epoch):
     if acc > best_acc:
         print('Saving..')
         state = {
-            'net': net.state_dict(),
+            'net': model.state_dict(),
             'acc': acc,
             'epoch': epoch,
         }
@@ -148,7 +153,14 @@ def test(epoch):
         best_acc = acc
 
 
-for epoch in range(start_epoch, start_epoch+200):
-    train(epoch)
-    test(epoch)
+# Training and testing VGG16
+for epoch in range(start_epoch, start_epoch+1):
+    train(epoch, vgg16)
+    test(epoch, vgg16)
+
+# Training and testing mVGG16
+for epoch in range(start_epoch, start_epoch+1):
+    train(epoch, m_vgg16)
+    test(epoch, m_vgg16)
+
     scheduler.step()
