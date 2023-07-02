@@ -94,8 +94,8 @@ optimizer = optim.SGD(net.parameters(), lr=args.lr,
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
 # Training
-def train(epoch, model):
-    print('\nEpoch: %d - Model: %s' % (epoch, model_name))
+def train(epoch, model, model_name):
+    print('\nEpoch: %d | Model: %s' % (epoch, model_name))
     model.train()
     train_loss = 0
     correct = 0
@@ -118,7 +118,7 @@ def train(epoch, model):
 
 
 # Testing
-def test(epoch, model):
+def test(epoch, model, model_name):
     global best_acc
     model.eval()
     test_loss = 0
@@ -154,13 +154,13 @@ def test(epoch, model):
 
 
 # Training and testing VGG16
-for epoch in range(start_epoch, start_epoch+1):
-    train(epoch, vgg16)
-    test(epoch, vgg16)
+for epoch in range(start_epoch, start_epoch+200):
+    train(epoch, vgg16, 'VGG16')
+    test(epoch, vgg16, 'VGG16')
 
 # Training and testing mVGG16
-for epoch in range(start_epoch, start_epoch+1):
-    train(epoch, m_vgg16)
-    test(epoch, m_vgg16)
+for epoch in range(start_epoch, start_epoch+200):
+    train(epoch, m_vgg16, 'mVGG16')
+    test(epoch, m_vgg16, 'mVGG16')
 
     scheduler.step()
